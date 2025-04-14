@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boxhead Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #111;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #game-canvas {
+            display: block;
+            background-color: #1a1a1a;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #hud-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            pointer-events: none;
+        }
+        
+        #minimap-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid #444;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+        
+        .menu-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+        }
+        
+        .menu {
+            background-color: #222;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            min-width: 300px;
+        }
+        
+        .menu h2 {
+            margin-top: 0;
+            color: #e74c3c;
+            font-size: 28px;
+        }
+        
+        .menu p {
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+        
+        .menu button {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        .menu button:hover {
+            background-color: #c0392b;
+        }
+        
+        .menu button:focus {
+            outline: none;
+        }
+        
+        .notification {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            z-index: 50;
+        }
+        
+        .notification.visible {
+            opacity: 1;
+        }
+        
+        #boss-warning {
+            color: #e74c3c;
+            font-size: 24px;
+            text-transform: uppercase;
+        }
+        
+        #level-up-menu {
+            max-width: 400px;
+        }
+        
+        .upgrade-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .upgrade-option {
+            background-color: #333;
+            margin: 10px;
+            padding: 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 120px;
+        }
+        
+        .upgrade-option:hover {
+            background-color: #444;
+        }
+        
+        .upgrade-option h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+        
+        .upgrade-option p {
+            font-size: 12px;
+            margin-bottom: 0;
+        }
+        
+        /* Hidden by default */
+        #main-menu, #game-over-menu, #level-up-menu, #wave-notification, #boss-warning {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- HUD -->
+        <div id="hud-container"></div>
+        
+        <!-- Minimap -->
+        <div id="minimap-container"></div>
+        
+        <!-- Menus -->
+        <div id="main-menu" class="menu-container">
+            <div class="menu">
+                <h2>BOXHEAD</h2>
+                <p>Survive the zombie onslaught as long as you can!</p>
+                <button id="start-button">New Game</button>
+                <button id="continue-button" style="display: none;">Continue</button>
+            </div>
+        </div>
+        
+        <div id="game-over-menu" class="menu-container">
+            <div class="menu">
+                <h2>Game Over</h2>
+                <p>Score: <span id="final-score">0</span></p>
+                <p>Waves Survived: <span id="final-wave">0</span></p>
+                <button id="restart-button">Play Again</button>
+            </div>
+        </div>
+        
+        <div id="level-up-menu" class="menu-container">
+            <div class="menu">
+                <h2>Level Up!</h2>
+                <p>Choose an upgrade:</p>
+                <div class="upgrade-options">
+                    <div class="upgrade-option" data-upgrade="health">
+                        <h3>Health</h3>
+                        <p>Increase max health by 20</p>
+                    </div>
+                    <div class="upgrade-option" data-upgrade="speed">
+                        <h3>Speed</h3>
+                        <p>Increase movement speed by 0.4</p>
+                    </div>
+                    <div class="upgrade-option" data-upgrade="damage">
+                        <h3>Damage</h3>
+                        <p>Increase damage by 15%</p>
+                    </div>
+                    <div class="upgrade-option" data-upgrade="fireRate">
+                        <h3>Fire Rate</h3>
+                        <p>Increase fire rate by 10%</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notifications -->
+        <div id="wave-notification" class="notification">
+            <h2>Wave <span id="wave-number">1</span></h2>
+        </div>
+        
+        <div id="boss-warning" class="notification">
+            <h2>WARNING!</h2>
+            <p>Boss Enemy Approaching</p>
+        </div>
+    </div>
+    
+    <!-- Load game scripts -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
