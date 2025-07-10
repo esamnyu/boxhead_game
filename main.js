@@ -121,6 +121,13 @@ class BoxheadGame {
         
         // Update HUD
         this.hud.update(this);
+        
+        // Connect to multiplayer server
+        multiplayerClient.connect().then(() => {
+            console.log('Connected to multiplayer server');
+        }).catch(err => {
+            console.warn('Failed to connect to multiplayer server:', err);
+        });
     }
     
     // Start new game
