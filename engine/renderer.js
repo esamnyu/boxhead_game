@@ -1,6 +1,8 @@
 // renderer.js - Canvas rendering system
 
 import { CONFIG } from '../config.js';
+import { BatchRenderer } from './batchRenderer.js';
+import { OffscreenRenderer } from './offscreenRenderer.js';
 
 export class Renderer {
     constructor() {
@@ -9,6 +11,8 @@ export class Renderer {
         this.width = 800;
         this.height = 600;
         this.debugMode = false;
+        this.batchRenderer = null;
+        this.offscreenRenderer = null;
     }
     
     // Initialize canvas and context
@@ -21,6 +25,12 @@ export class Renderer {
         }
         
         this.ctx = this.gameCanvas.getContext('2d');
+        
+        // Initialize batch renderer
+        this.batchRenderer = new BatchRenderer(this.ctx);
+        
+        // Initialize offscreen renderer
+        this.offscreenRenderer = new OffscreenRenderer();
         
         // Set canvas dimensions
         this.resize();
@@ -67,27 +77,23 @@ export class Renderer {
         if (!this.ctx) return;
         
         const gridSize = 100;
-        const offsetX = -camera.x % gridSize;
-        const offsetY = -camera.y % gridSize;
         
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        this.ctx.lineWidth = 1;
+        // Pre-render grid to offscreen canvas if needed
+        const gridCanvas = this.offscreenRenderer.renderGrid(
+            gridSize,
+            CONFIG.WORLD_WIDTH,
+            CONFIG.WORLD_HEIGHT,
+            'rgba(255, 255, 255, 0.05)'
+        );
         
-        // Draw vertical grid lines
-        for (let x = offsetX; x < this.width; x += gridSize) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.height);
-            this.ctx.stroke();
-        }
-        
-        // Draw horizontal grid lines
-        for (let y = offsetY; y < this.height; y += gridSize) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.width, y);
-            this.ctx.stroke();
-        }
+        // Draw the visible portion of the grid
+        this.ctx.drawImage(
+            gridCanvas,
+            camera.x, camera.y,              // Source position
+            this.width, this.height,         // Source dimensions
+            0, 0,                           // Destination position
+            this.width, this.height         // Destination dimensions
+        );
     }
     
     // Render obstacles
@@ -171,6 +177,7 @@ export class Renderer {
     renderEnemies(enemies, camera) {
         if (!this.ctx) return;
         
+        // First pass: batch enemy bodies by color
         for (const enemy of enemies) {
             // Skip rendering enemies outside of view
             if (this.isOffscreen(enemy, camera)) continue;
@@ -178,14 +185,25 @@ export class Renderer {
             const screenX = enemy.x - camera.x;
             const screenY = enemy.y - camera.y;
             
-            // Draw enemy
-            this.ctx.fillStyle = enemy.color;
-            this.ctx.fillRect(
+            // Add enemy to batch
+            this.batchRenderer.addRect(
+                enemy.color,
                 screenX - enemy.width / 2,
                 screenY - enemy.height / 2,
                 enemy.width,
                 enemy.height
             );
+        }
+        
+        // Render all enemy bodies
+        this.batchRenderer.flush();
+        
+        // Second pass: render health bars
+        for (const enemy of enemies) {
+            if (this.isOffscreen(enemy, camera)) continue;
+            
+            const screenX = enemy.x - camera.x;
+            const screenY = enemy.y - camera.y;
             
             // Health bar
             const healthBarWidth = enemy.width;

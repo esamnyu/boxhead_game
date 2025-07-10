@@ -2,6 +2,7 @@
 
 import { CONFIG } from '../config.js';
 import { checkCollision } from '../systems/collisions.js';
+import { rectPool } from '../utils/objectPool.js';
 
 export class BulletManager {
     constructor(game) {
@@ -220,6 +221,8 @@ export class BulletManager {
     
     // Update all bullets
     update(deltaTime) {
+        // Pre-allocate rectangles for collision detection
+        const enemyRects = new Map();
         // Using a reverse loop for efficient removal
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             const bullet = this.bullets[i];
@@ -267,15 +270,11 @@ export class BulletManager {
             const nearbyObjects = this.game.grid.getNearby(bullet, 50);
             let bulletRemoved = false;
             
+            // Get bullet rect from pool
+            const bulletRect = rectPool.getForEntity(bullet);
+            
             for (const obj of nearbyObjects) {
                 if (obj === bullet) continue;
-                
-                const bulletRect = {
-                    x: bullet.x - bullet.width/2,
-                    y: bullet.y - bullet.height/2,
-                    width: bullet.width,
-                    height: bullet.height
-                };
                 
                 // Check bullet-obstacle collisions
                 if (this.game.enemyManager.obstacles.includes(obj)) {
@@ -295,14 +294,15 @@ export class BulletManager {
                 }
                 
                 // Check bullet-enemy collisions
-                if (!bulletRemoved && this.game.enemyManager.enemies.includes(obj) && bullet.owner === 'player') {
+                if (!bulletRemoved && obj.entityType === 'enemy' && bullet.owner === 'player') {
                     const enemy = obj;
-                    const enemyRect = {
-                        x: enemy.x - enemy.width/2,
-                        y: enemy.y - enemy.height/2,
-                        width: enemy.width,
-                        height: enemy.height
-                    };
+                    
+                    // Get or create enemy rect
+                    let enemyRect = enemyRects.get(enemy);
+                    if (!enemyRect) {
+                        enemyRect = rectPool.getForEntity(enemy);
+                        enemyRects.set(enemy, enemyRect);
+                    }
                     
                     if (checkCollision(bulletRect, enemyRect)) {
                         if (bullet.isGrenade) {
@@ -344,5 +344,8 @@ export class BulletManager {
                 }
             }
         }
+        
+        // Release all rectangles back to pool
+        rectPool.releaseAll();
     }
 }

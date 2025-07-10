@@ -3,12 +3,13 @@
 export class Grid {
     constructor(cellSize = 100) {
         this.cellSize = cellSize;
-        this.cells = {};
+        this.cells = new Map();
+        this.gridWidth = Math.ceil(5000 / cellSize); // Assuming max world size
     }
     
     // Reset grid
     reset() {
-        this.cells = {};
+        this.cells.clear();
     }
     
     // Add object to grid
@@ -26,24 +27,25 @@ export class Grid {
         
         const cellX = Math.floor(centerX / this.cellSize);
         const cellY = Math.floor(centerY / this.cellSize);
-        const cellKey = `${cellX},${cellY}`;
+        const cellKey = this.getCellKey(cellX, cellY);
         
-        if (!this.cells[cellKey]) {
-            this.cells[cellKey] = [];
+        if (!this.cells.has(cellKey)) {
+            this.cells.set(cellKey, []);
         }
         
+        const cell = this.cells.get(cellKey);
         // Check if object is already in this cell to prevent duplicates
-        if (!this.cells[cellKey].includes(obj)) {
-            this.cells[cellKey].push(obj);
+        if (!cell.includes(obj)) {
+            cell.push(obj);
             obj.cellKey = cellKey;
         }
     }
     
     // Remove object from grid
     remove(obj) {
-        if (!obj || !obj.cellKey) return;
+        if (!obj || obj.cellKey === null || obj.cellKey === undefined) return;
         
-        const cell = this.cells[obj.cellKey];
+        const cell = this.cells.get(obj.cellKey);
         if (!cell) return;
         
         const index = cell.indexOf(obj);
@@ -53,7 +55,7 @@ export class Grid {
         
         // Clean up empty cells to prevent memory leaks
         if (cell.length === 0) {
-            delete this.cells[obj.cellKey];
+            this.cells.delete(obj.cellKey);
         }
         
         obj.cellKey = null;
@@ -73,7 +75,7 @@ export class Grid {
         
         const newCellX = Math.floor(centerX / this.cellSize);
         const newCellY = Math.floor(centerY / this.cellSize);
-        const newCellKey = `${newCellX},${newCellY}`;
+        const newCellKey = this.getCellKey(newCellX, newCellY);
         
         // Only update if object has moved to a new cell
         if (obj.cellKey !== newCellKey) {
@@ -98,8 +100,8 @@ export class Grid {
         
         for (let cellX = startCellX; cellX <= endCellX; cellX++) {
             for (let cellY = startCellY; cellY <= endCellY; cellY++) {
-                const cellKey = `${cellX},${cellY}`;
-                const cell = this.cells[cellKey];
+                const cellKey = this.getCellKey(cellX, cellY);
+                const cell = this.cells.get(cellKey);
                 
                 if (cell) {
                     for (const object of cell) {
@@ -118,8 +120,8 @@ export class Grid {
     
     // Get all objects in a specific cell
     getObjectsInCell(cellX, cellY) {
-        const cellKey = `${cellX},${cellY}`;
-        return this.cells[cellKey] || [];
+        const cellKey = this.getCellKey(cellX, cellY);
+        return this.cells.get(cellKey) || [];
     }
     
     // Get cell coordinates for a position
@@ -129,11 +131,18 @@ export class Grid {
         return { cellX, cellY };
     }
     
+    // Convert cell coordinates to integer key
+    getCellKey(cellX, cellY) {
+        // Use bit shifting for fast integer hashing
+        // This assumes grid coordinates won't exceed 16-bit range
+        return (cellX & 0xFFFF) | ((cellY & 0xFFFF) << 16);
+    }
+    
     // Debug: Get total number of objects in grid
     getObjectCount() {
         let count = 0;
-        for (const cellKey in this.cells) {
-            count += this.cells[cellKey].length;
+        for (const cell of this.cells.values()) {
+            count += cell.length;
         }
         return count;
     }
@@ -144,9 +153,11 @@ export class Grid {
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
         ctx.lineWidth = 1;
         
-        for (const cellKey in this.cells) {
-            if (this.cells[cellKey].length > 0) {
-                const [cellX, cellY] = cellKey.split(',').map(Number);
+        for (const [cellKey, cell] of this.cells.entries()) {
+            if (cell.length > 0) {
+                // Decode cell coordinates from integer key
+                const cellX = cellKey & 0xFFFF;
+                const cellY = (cellKey >> 16) & 0xFFFF;
                 
                 const screenX = cellX * this.cellSize - camera.x;
                 const screenY = cellY * this.cellSize - camera.y;
@@ -168,7 +179,7 @@ export class Grid {
                     ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
                     ctx.font = '10px Arial';
                     ctx.fillText(
-                        this.cells[cellKey].length.toString(),
+                        cell.length.toString(),
                         screenX + 5,
                         screenY + 15
                     );

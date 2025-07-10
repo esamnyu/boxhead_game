@@ -2,6 +2,7 @@
 
 import { CONFIG } from '../config.js';
 import { checkCollision } from '../systems/collisions.js';
+import { CollisionLayers, CollisionLayerUtils } from '../systems/collisionLayers.js';
 
 export class EnemyManager {
     constructor(game) {
@@ -40,6 +41,8 @@ export class EnemyManager {
             damage: 0,
             color: '',
             type: '',
+            entityType: 'enemy',
+            collisionLayer: CollisionLayers.ENEMY,
             points: 0,
             lastAttack: 0,
             attackCooldown: 1000,
@@ -97,6 +100,8 @@ export class EnemyManager {
         enemy.damage = enemyConfig.damage;
         enemy.color = enemyConfig.color;
         enemy.type = type;
+        enemy.entityType = 'enemy'; // Fast type checking flag
+        enemy.collisionLayer = CollisionLayers.ENEMY;
         enemy.points = enemyConfig.points;
         enemy.lastAttack = 0;
         enemy.attackCooldown = 1000;
@@ -149,6 +154,8 @@ export class EnemyManager {
         boss.damage = bossConfig.damage * waveMultiplier;
         boss.color = bossConfig.color;
         boss.type = 'boss';
+        boss.entityType = 'enemy'; // Fast type checking flag
+        boss.collisionLayer = CollisionLayers.ENEMY;
         boss.points = bossConfig.points * waveMultiplier;
         boss.lastAttack = 0;
         boss.attackCooldown = 800; // Bosses attack faster

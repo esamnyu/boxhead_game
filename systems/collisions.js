@@ -1,5 +1,7 @@
 // collisions.js - Collision detection and resolution system
 
+import { rectPool } from '../utils/objectPool.js';
+
 export class CollisionSystem {
     constructor(grid) {
         this.grid = grid;
@@ -34,30 +36,26 @@ export class CollisionSystem {
         // Calculate distance between closest point and circle center
         const distX = circle.x - closestX;
         const distY = circle.y - closestY;
-        const distance = Math.sqrt(distX * distX + distY * distY);
+        const distanceSquared = distX * distX + distY * distY;
         
         // If distance is less than circle radius, collision detected
-        return distance < circle.radius;
+        return distanceSquared < circle.radius * circle.radius;
     }
     
     // Check collision between two circles
     checkCircleCollision(circleA, circleB) {
         const dx = circleA.x - circleB.x;
         const dy = circleA.y - circleB.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distanceSquared = dx * dx + dy * dy;
+        const radiusSum = circleA.radius + circleB.radius;
         
-        return distance < (circleA.radius + circleB.radius);
+        return distanceSquared < radiusSum * radiusSum;
     }
     
     // Resolve collision between an entity and obstacles
     resolveObstacleCollision(entity, obstacles) {
-        // Create entity rectangle
-        const entityRect = {
-            x: entity.x - entity.width / 2,
-            y: entity.y - entity.height / 2,
-            width: entity.width,
-            height: entity.height
-        };
+        // Get entity rectangle from pool
+        const entityRect = rectPool.getForEntity(entity);
         
         // Get nearby obstacles using the grid
         const nearbyObstacles = this.grid.getNearby(entity, 100);
@@ -101,6 +99,8 @@ export class CollisionSystem {
                 entityRect.y = entity.y - entity.height / 2;
             }
         }
+        
+        // Rectangle will be automatically released at frame end
     }
     
     // Check if a line segment intersects with a rectangle
@@ -167,18 +167,12 @@ export class CollisionSystem {
     // Check line of sight between two points
     checkLineOfSight(startX, startY, endX, endY, obstacles) {
         // Get obstacles that could potentially block line of sight
-        const lineRect = {
-            x: Math.min(startX, endX),
-            y: Math.min(startY, endY),
-            width: Math.abs(endX - startX),
-            height: Math.abs(endY - startY)
-        };
-        
-        // Add padding to ensure we get all potential obstacles
-        lineRect.x -= 20;
-        lineRect.y -= 20;
-        lineRect.width += 40;
-        lineRect.height += 40;
+        const lineRect = rectPool.getBounds(
+            Math.min(startX, endX) - 20,
+            Math.min(startY, endY) - 20,
+            Math.abs(endX - startX) + 40,
+            Math.abs(endY - startY) + 40
+        );
         
         const potentialObstacles = this.grid.getNearby(lineRect, 0);
         

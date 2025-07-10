@@ -2,6 +2,7 @@
 
 import { CONFIG } from '../config.js';
 import { checkCollision } from '../systems/collisions.js';
+import { CollisionLayers } from '../systems/collisionLayers.js';
 
 export class Player {
     constructor(game) {
@@ -12,6 +13,10 @@ export class Player {
         this.y = CONFIG.WORLD_HEIGHT / 2;
         this.width = 30;
         this.height = 30;
+        
+        // Collision
+        this.entityType = 'player';
+        this.collisionLayer = CollisionLayers.PLAYER;
         
         // Movement
         this.speed = 4;
