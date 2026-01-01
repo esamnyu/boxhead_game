@@ -1,0 +1,13 @@
+{
+  "name": "wordle-friends",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "cd server && npm start",
+    "build": "cd server && npm install",
+    "postinstall": "cd server && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
