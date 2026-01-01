@@ -1,234 +1,672 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boxhead Game</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background-color: #111;
-            color: #fff;
-            overflow: hidden;
-        }
-        
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }
-        
-        #game-canvas {
-            display: block;
-            background-color: #1a1a1a;
-            width: 100%;
-            height: 100%;
-        }
-        
-        #hud-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            pointer-events: none;
-        }
-        
-        #minimap-container {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background-color: rgba(0, 0, 0, 0.7);
-            border: 1px solid #444;
-            border-radius: 5px;
-            pointer-events: none;
-        }
-        
-        .menu-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: rgba(0, 0, 0, 0.8);
-            z-index: 100;
-        }
-        
-        .menu {
-            background-color: #222;
-            border-radius: 8px;
-            padding: 30px;
-            text-align: center;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            min-width: 300px;
-        }
-        
-        .menu h2 {
-            margin-top: 0;
-            color: #e74c3c;
-            font-size: 28px;
-        }
-        
-        .menu p {
-            color: #ccc;
-            margin-bottom: 20px;
-        }
-        
-        .menu button {
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            margin: 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-        
-        .menu button:hover {
-            background-color: #c0392b;
-        }
-        
-        .menu button:focus {
-            outline: none;
-        }
-        
-        .notification {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 20px;
-            border-radius: 5px;
-            text-align: center;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.5s;
-            z-index: 50;
-        }
-        
-        .notification.visible {
-            opacity: 1;
-        }
-        
-        #boss-warning {
-            color: #e74c3c;
-            font-size: 24px;
-            text-transform: uppercase;
-        }
-        
-        #level-up-menu {
-            max-width: 400px;
-        }
-        
-        .upgrade-options {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .upgrade-option {
-            background-color: #333;
-            margin: 10px;
-            padding: 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            width: 120px;
-        }
-        
-        .upgrade-option:hover {
-            background-color: #444;
-        }
-        
-        .upgrade-option h3 {
-            margin-top: 0;
-            color: #3498db;
-        }
-        
-        .upgrade-option p {
-            font-size: 12px;
-            margin-bottom: 0;
-        }
-        
-        /* Hidden by default */
-        #main-menu, #game-over-menu, #level-up-menu, #wave-notification, #boss-warning {
-            display: none;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Wordle for Friends</title>
+  <style>
+    :root {
+      --correct: #6aaa64;
+      --present: #c9b458;
+      --absent: #3a3a3c;
+      --tile-border: #3a3a3c;
+      --tile-empty: #121213;
+      --key-bg: #818384;
+      --key-text: #ffffff;
+      --bg: #121213;
+      --text: #ffffff;
+      --text-muted: #818384;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    header {
+      border-bottom: 1px solid var(--tile-border);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    .room-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .room-code {
+      background: var(--tile-border);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 18px;
+      letter-spacing: 2px;
+    }
+
+    .player-count {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Main game area */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      max-width: 500px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* Game board */
+    #game-board {
+      display: grid;
+      grid-template-rows: repeat(6, 1fr);
+      gap: 5px;
+      padding: 10px;
+      width: 100%;
+      max-width: 350px;
+      aspect-ratio: 5/6;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+    }
+
+    .tile {
+      aspect-ratio: 1;
+      border: 2px solid var(--tile-border);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      background: var(--tile-empty);
+      transition: transform 0.1s;
+    }
+
+    .tile.filled {
+      border-color: #565758;
+      animation: pop 0.1s;
+    }
+
+    .tile.correct {
+      background: var(--correct);
+      border-color: var(--correct);
+    }
+
+    .tile.present {
+      background: var(--present);
+      border-color: var(--present);
+    }
+
+    .tile.absent {
+      background: var(--absent);
+      border-color: var(--absent);
+    }
+
+    .tile.flip {
+      animation: flip 0.5s ease forwards;
+    }
+
+    @keyframes pop {
+      50% { transform: scale(1.1); }
+    }
+
+    @keyframes flip {
+      0% { transform: rotateX(0); }
+      50% { transform: rotateX(90deg); }
+      100% { transform: rotateX(0); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-5px); }
+      40% { transform: translateX(5px); }
+      60% { transform: translateX(-5px); }
+      80% { transform: translateX(5px); }
+    }
+
+    .row.shake {
+      animation: shake 0.3s;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+
+    .tile.bounce {
+      animation: bounce 0.5s;
+    }
+
+    /* Players sidebar */
+    #players-panel {
+      position: fixed;
+      right: 20px;
+      top: 80px;
+      width: 200px;
+      background: rgba(30, 30, 30, 0.95);
+      border-radius: 8px;
+      padding: 16px;
+      display: none;
+    }
+
+    #players-panel.visible {
+      display: block;
+    }
+
+    #players-panel h3 {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .player-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--tile-border);
+    }
+
+    .player-item:last-child {
+      border-bottom: none;
+    }
+
+    .player-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--present);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    .player-info {
+      flex: 1;
+    }
+
+    .player-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .player-progress {
+      display: flex;
+      gap: 3px;
+      margin-top: 4px;
+    }
+
+    .progress-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--tile-border);
+    }
+
+    .progress-dot.used {
+      background: var(--text-muted);
+    }
+
+    .progress-dot.correct {
+      background: var(--correct);
+    }
+
+    .player-typing {
+      color: var(--present);
+      font-size: 12px;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Keyboard */
+    #keyboard {
+      width: 100%;
+      max-width: 500px;
+      padding: 10px;
+      margin-top: auto;
+    }
+
+    .keyboard-row {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .key {
+      font-family: inherit;
+      font-weight: bold;
+      border: none;
+      padding: 0;
+      height: 58px;
+      min-width: 43px;
+      border-radius: 4px;
+      background: var(--key-bg);
+      color: var(--key-text);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-transform: uppercase;
+      transition: background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .key:hover {
+      opacity: 0.9;
+    }
+
+    .key:active {
+      transform: scale(0.95);
+    }
+
+    .key.wide {
+      min-width: 65px;
+      font-size: 12px;
+    }
+
+    .key.correct {
+      background: var(--correct);
+    }
+
+    .key.present {
+      background: var(--present);
+    }
+
+    .key.absent {
+      background: var(--absent);
+    }
+
+    /* Messages */
+    #message {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg);
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 100;
+    }
+
+    #message.visible {
+      opacity: 1;
+    }
+
+    /* Lobby overlay */
+    #lobby {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    #lobby.hidden {
+      display: none;
+    }
+
+    .lobby-title {
+      font-size: 48px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      margin-bottom: 40px;
+    }
+
+    .lobby-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 280px;
+    }
+
+    .lobby-btn {
+      padding: 16px 32px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.1s;
+    }
+
+    .lobby-btn:hover {
+      opacity: 0.9;
+    }
+
+    .lobby-btn:active {
+      transform: scale(0.98);
+    }
+
+    .lobby-btn.primary {
+      background: var(--correct);
+      color: white;
+    }
+
+    .lobby-btn.secondary {
+      background: var(--key-bg);
+      color: white;
+    }
+
+    .lobby-input {
+      padding: 16px;
+      font-size: 24px;
+      text-align: center;
+      background: var(--tile-empty);
+      border: 2px solid var(--tile-border);
+      border-radius: 4px;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      font-family: monospace;
+    }
+
+    .lobby-input::placeholder {
+      color: var(--text-muted);
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .lobby-section {
+      margin-top: 30px;
+      text-align: center;
+    }
+
+    .lobby-section h3 {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .name-input {
+      padding: 12px 16px;
+      font-size: 18px;
+      background: var(--tile-empty);
+      border: 2px solid var(--tile-border);
+      border-radius: 4px;
+      color: var(--text);
+      width: 280px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    /* Waiting room */
+    #waiting-room {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+
+    #waiting-room.hidden {
+      display: none;
+    }
+
+    .waiting-code {
+      font-size: 48px;
+      font-family: monospace;
+      letter-spacing: 8px;
+      background: var(--tile-border);
+      padding: 20px 40px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+    }
+
+    .waiting-players {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+      max-width: 400px;
+      margin-bottom: 30px;
+    }
+
+    .waiting-player {
+      background: var(--tile-border);
+      padding: 12px 20px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .waiting-player.ready {
+      background: var(--correct);
+    }
+
+    .ready-btn {
+      padding: 16px 48px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background: var(--key-bg);
+      color: white;
+    }
+
+    .ready-btn.ready {
+      background: var(--correct);
+    }
+
+    .start-btn {
+      padding: 16px 48px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background: var(--correct);
+      color: white;
+      margin-top: 16px;
+    }
+
+    .start-btn:disabled {
+      background: var(--key-bg);
+      cursor: not-allowed;
+    }
+
+    /* Results modal */
+    #results {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1001;
+    }
+
+    #results.hidden {
+      display: none;
+    }
+
+    .results-modal {
+      background: var(--tile-empty);
+      border-radius: 8px;
+      padding: 32px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .results-title {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .results-word {
+      font-size: 24px;
+      letter-spacing: 4px;
+      margin-bottom: 24px;
+      color: var(--correct);
+    }
+
+    .results-stats {
+      margin-bottom: 24px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--tile-border);
+    }
+
+    .play-again-btn {
+      padding: 16px 32px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background: var(--correct);
+      color: white;
+      width: 100%;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .logo {
+        font-size: 20px;
+      }
+
+      #players-panel {
+        display: none !important;
+      }
+
+      .tile {
+        font-size: 1.5rem;
+      }
+
+      .key {
+        height: 50px;
+        min-width: 32px;
+        font-size: 12px;
+      }
+
+      .key.wide {
+        min-width: 50px;
+        font-size: 10px;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="game-canvas"></canvas>
-        
-        <!-- HUD -->
-        <div id="hud-container"></div>
-        
-        <!-- Minimap -->
-        <div id="minimap-container"></div>
-        
-        <!-- Menus -->
-        <div id="main-menu" class="menu-container">
-            <div class="menu">
-                <h2>BOXHEAD</h2>
-                <p>Survive the zombie onslaught as long as you can!</p>
-                <button id="start-button">New Game</button>
-                <button id="continue-button" style="display: none;">Continue</button>
-            </div>
-        </div>
-        
-        <div id="game-over-menu" class="menu-container">
-            <div class="menu">
-                <h2>Game Over</h2>
-                <p>Score: <span id="final-score">0</span></p>
-                <p>Waves Survived: <span id="final-wave">0</span></p>
-                <button id="restart-button">Play Again</button>
-            </div>
-        </div>
-        
-        <div id="level-up-menu" class="menu-container">
-            <div class="menu">
-                <h2>Level Up!</h2>
-                <p>Choose an upgrade:</p>
-                <div class="upgrade-options">
-                    <div class="upgrade-option" data-upgrade="health">
-                        <h3>Health</h3>
-                        <p>Increase max health by 20</p>
-                    </div>
-                    <div class="upgrade-option" data-upgrade="speed">
-                        <h3>Speed</h3>
-                        <p>Increase movement speed by 0.4</p>
-                    </div>
-                    <div class="upgrade-option" data-upgrade="damage">
-                        <h3>Damage</h3>
-                        <p>Increase damage by 15%</p>
-                    </div>
-                    <div class="upgrade-option" data-upgrade="fireRate">
-                        <h3>Fire Rate</h3>
-                        <p>Increase fire rate by 10%</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Notifications -->
-        <div id="wave-notification" class="notification">
-            <h2>Wave <span id="wave-number">1</span></h2>
-        </div>
-        
-        <div id="boss-warning" class="notification">
-            <h2>WARNING!</h2>
-            <p>Boss Enemy Approaching</p>
-        </div>
+  <!-- Lobby -->
+  <div id="lobby">
+    <h1 class="lobby-title">WORDLE</h1>
+    <p style="color: var(--text-muted); margin-bottom: 30px;">Race your friends in real-time!</p>
+
+    <input type="text" class="name-input" id="player-name" placeholder="Enter your name" maxlength="12">
+
+    <div class="lobby-buttons">
+      <button class="lobby-btn primary" id="create-room-btn">Create Room</button>
+      <button class="lobby-btn secondary" id="join-room-btn">Join Room</button>
     </div>
-    
-    <!-- Load game scripts -->
-    <script type="module" src="main.js"></script>
+
+    <div class="lobby-section" id="join-section" style="display: none;">
+      <h3>Enter Room Code</h3>
+      <input type="text" class="lobby-input" id="room-code-input" placeholder="ABCD12" maxlength="6">
+      <button class="lobby-btn primary" id="submit-join-btn" style="margin-top: 16px; width: 100%;">Join</button>
+    </div>
+  </div>
+
+  <!-- Waiting Room -->
+  <div id="waiting-room" class="hidden">
+    <h2 style="margin-bottom: 16px; color: var(--text-muted);">ROOM CODE</h2>
+    <div class="waiting-code" id="display-room-code">------</div>
+    <p style="color: var(--text-muted); margin-bottom: 20px;">Share this code with friends!</p>
+
+    <div class="waiting-players" id="waiting-players"></div>
+
+    <button class="ready-btn" id="ready-btn">Ready</button>
+    <button class="start-btn" id="start-btn" style="display: none;">Start Game</button>
+  </div>
+
+  <!-- Game -->
+  <header style="display: none;" id="game-header">
+    <div class="logo">WORDLE</div>
+    <div class="room-info">
+      <span class="room-code" id="header-room-code">------</span>
+      <span class="player-count" id="header-player-count">0 players</span>
+    </div>
+  </header>
+
+  <main style="display: none;" id="game-main">
+    <div id="game-board"></div>
+  </main>
+
+  <div id="keyboard" style="display: none;"></div>
+
+  <!-- Players Panel -->
+  <div id="players-panel">
+    <h3>Players</h3>
+    <div id="players-list"></div>
+  </div>
+
+  <!-- Message toast -->
+  <div id="message"></div>
+
+  <!-- Results modal -->
+  <div id="results" class="hidden">
+    <div class="results-modal">
+      <h2 class="results-title" id="results-title">Game Over</h2>
+      <div class="results-word" id="results-word">CRANE</div>
+      <div class="results-stats" id="results-stats"></div>
+      <button class="play-again-btn" id="play-again-btn">Play Again</button>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
 </body>
 </html>
