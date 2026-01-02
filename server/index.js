@@ -1,4 +1,7 @@
 // index.js - Wordle for Friends Server
+console.log('Starting server...');
+console.log('Node version:', process.version);
+console.log('PORT env:', process.env.PORT);
 
 import express from 'express';
 import { createServer } from 'http';
@@ -11,6 +14,7 @@ import dotenv from 'dotenv';
 import { RoomManager } from './multiplayer/roomManager.js';
 import { GameServer } from './multiplayer/gameServer.js';
 
+console.log('Imports completed successfully');
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
