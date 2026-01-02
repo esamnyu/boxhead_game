@@ -22,6 +22,7 @@ export class GameServer {
       socket.on('player-ready', (data) => this.handlePlayerReady(socket, data));
       socket.on('start-game', () => this.handleStartGame(socket));
       socket.on('typing', (data) => this.handleTyping(socket, data));
+      socket.on('collab-typing', (data) => this.handleCollabTyping(socket, data));
       socket.on('submit-guess', (data) => this.handleSubmitGuess(socket, data));
       socket.on('disconnect', () => this.handleDisconnect(socket));
     });
@@ -29,6 +30,9 @@ export class GameServer {
 
   handleCreateRoom(socket, data) {
     const { roomId, joinCode, room } = this.roomManager.createRoom(socket.id, {});
+
+    // Set room mode (competitive or collaborative)
+    room.gameMode = data.gameMode || 'competitive';
 
     this.roomManager.joinRoom(roomId, socket.id, { name: data.playerName });
 
@@ -40,7 +44,7 @@ export class GameServer {
     const player = room.players.get(socket.id);
     if (player) player.isHost = true;
 
-    socket.emit('room-created', { joinCode, isHost: true });
+    socket.emit('room-created', { joinCode, isHost: true, gameMode: room.gameMode });
     this.broadcastRoomUpdate(roomId);
   }
 
@@ -117,6 +121,7 @@ export class GameServer {
 
     // Notify all players
     this.io.to(roomId).emit('game-start', {
+      gameMode: room.gameMode || 'competitive',
       players: Array.from(room.players.entries()).map(([id, p]) => ({
         id,
         name: p.name
@@ -136,29 +141,64 @@ export class GameServer {
     });
   }
 
+  handleCollabTyping(socket, data) {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+
+    // In collaborative mode, broadcast actual letters to all players including sender
+    this.io.to(roomId).emit('collab-update', {
+      playerId: socket.id,
+      letters: data.letters,
+      row: data.row,
+      playerName: data.playerName
+    });
+  }
+
   handleSubmitGuess(socket, data) {
     const roomId = socket.data.roomId;
+    const room = this.roomManager.getRoom(roomId);
     const session = this.gameSessions.get(roomId);
     if (!session) return;
 
+    const isCollaborative = room?.gameMode === 'collaborative';
+    const player = room?.players.get(socket.id);
+
+    // In collaborative mode, notify others that submission is happening
+    if (isCollaborative) {
+      socket.to(roomId).emit('collab-submitting', {
+        playerId: socket.id,
+        playerName: player?.name,
+        guess: data.guess
+      });
+    }
+
     const result = session.submitGuess(socket.id, data.guess);
 
-    // Send result to player
-    socket.emit('guess-result', result);
-
-    if (result.valid) {
-      // Broadcast progress to others
-      socket.to(roomId).emit('player-guessed', {
-        playerId: socket.id,
-        row: result.row,
-        solved: result.status === 'won'
+    if (isCollaborative) {
+      // In collaborative mode, send result to ALL players (including submitter)
+      this.io.to(roomId).emit('collab-result', {
+        ...result,
+        submitterId: socket.id,
+        submitterName: player?.name
       });
+    } else {
+      // Competitive mode - send result only to player
+      socket.emit('guess-result', result);
 
-      // Check if game is over
-      if (session.isGameOver()) {
-        const gameOverData = session.getGameOverData();
-        this.io.to(roomId).emit('game-over', gameOverData);
+      if (result.valid) {
+        // Broadcast progress to others
+        socket.to(roomId).emit('player-guessed', {
+          playerId: socket.id,
+          row: result.row,
+          solved: result.status === 'won'
+        });
       }
+    }
+
+    // Check if game is over
+    if (result.valid && session.isGameOver()) {
+      const gameOverData = session.getGameOverData();
+      this.io.to(roomId).emit('game-over', gameOverData);
     }
   }
 

@@ -57,6 +57,16 @@ export class GameBoard {
     return true;
   }
 
+  // Clear all letters from current row
+  clearCurrentRow() {
+    const tiles = this.rows[this.currentRow].tiles;
+    tiles.forEach(tile => {
+      tile.textContent = '';
+      tile.classList.remove('filled');
+    });
+    this.currentTile = 0;
+  }
+
   // Get current input as string
   getCurrentWord() {
     return this.rows[this.currentRow].tiles

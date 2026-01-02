@@ -16,6 +16,8 @@ class WordleApp {
     this.gameActive = false;
     this.currentInput = '';
     this.myStatus = 'playing'; // 'playing' | 'won' | 'lost'
+    this.gameMode = 'competitive'; // 'competitive' | 'collaborative'
+    this.collaborativeLetters = ''; // Shared letters in collaborative mode
 
     this.init();
   }
@@ -41,6 +43,8 @@ class WordleApp {
     document.getElementById('create-room-btn').addEventListener('click', () => {
       this.playerName = document.getElementById('player-name').value.trim() || 'Player';
       this.saveName(this.playerName);
+      const selectedMode = document.querySelector('input[name="game-mode"]:checked').value;
+      this.gameMode = selectedMode;
       this.connectAndCreateRoom();
     });
 
@@ -137,6 +141,7 @@ class WordleApp {
     this.socket.on('room-created', (data) => {
       this.roomCode = data.joinCode;
       this.isHost = true;
+      this.gameMode = data.gameMode || 'competitive';
       this.showWaitingRoom();
     });
 
@@ -162,12 +167,27 @@ class WordleApp {
       this.updatePlayerTyping(data);
     });
 
-    // Player submitted guess
+    // Collaborative mode - real-time letter updates
+    this.socket.on('collab-update', (data) => {
+      this.handleCollabUpdate(data);
+    });
+
+    // Collaborative mode - someone is submitting
+    this.socket.on('collab-submitting', (data) => {
+      this.handleCollabSubmitting(data);
+    });
+
+    // Collaborative mode - guess result for all players
+    this.socket.on('collab-result', (data) => {
+      this.handleCollabResult(data);
+    });
+
+    // Player submitted guess (competitive mode)
     this.socket.on('player-guessed', (data) => {
       this.updatePlayerProgress(data);
     });
 
-    // Guess result (your own guess)
+    // Guess result (your own guess in competitive mode)
     this.socket.on('guess-result', (data) => {
       this.handleGuessResult(data);
     });
@@ -186,7 +206,10 @@ class WordleApp {
   async connectAndCreateRoom() {
     try {
       await this.connectToServer();
-      this.socket.emit('create-room', { playerName: this.playerName });
+      this.socket.emit('create-room', {
+        playerName: this.playerName,
+        gameMode: this.gameMode
+      });
     } catch (err) {
       console.error('Failed to create room:', err);
     }
@@ -205,6 +228,12 @@ class WordleApp {
     document.getElementById('lobby').classList.add('hidden');
     document.getElementById('waiting-room').classList.remove('hidden');
     document.getElementById('display-room-code').textContent = this.roomCode;
+
+    // Show game mode
+    const modeDisplay = document.getElementById('game-mode-display');
+    modeDisplay.textContent = this.gameMode === 'collaborative'
+      ? 'Mode: Collaborative (Work Together!)'
+      : 'Mode: Competitive (Race!)';
 
     if (this.isHost) {
       document.getElementById('start-btn').style.display = 'block';
@@ -242,16 +271,34 @@ class WordleApp {
   }
 
   startGame(data) {
+    // Set game mode from server
+    this.gameMode = data.gameMode || 'competitive';
+
     // Hide waiting room, show game
     document.getElementById('waiting-room').classList.add('hidden');
     document.getElementById('game-header').style.display = 'flex';
     document.getElementById('game-main').style.display = 'flex';
     document.getElementById('keyboard').style.display = 'block';
-    document.getElementById('players-panel').classList.add('visible');
+
+    if (this.gameMode === 'competitive') {
+      document.getElementById('players-panel').classList.add('visible');
+    } else {
+      // Show collaborative status bar
+      const statusEl = document.getElementById('collab-status');
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = '🤝 Working together...';
+        statusEl.style.background = 'var(--tile-border)';
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 2000);
+      }
+    }
 
     // Update header
     document.getElementById('header-room-code').textContent = this.roomCode;
-    document.getElementById('header-player-count').textContent = `${this.players.size} players`;
+    const modeText = this.gameMode === 'collaborative' ? 'Collaborative' : 'Competitive';
+    document.getElementById('header-player-count').textContent = `${this.players.size} players • ${modeText}`;
 
     // Initialize game board and keyboard
     this.gameBoard = new GameBoard('game-board');
@@ -259,10 +306,13 @@ class WordleApp {
 
     this.gameActive = true;
     this.currentInput = '';
+    this.collaborativeLetters = '';
     this.myStatus = 'playing';
 
-    // Update players panel
-    this.updatePlayersPanel();
+    // Update players panel (for competitive mode)
+    if (this.gameMode === 'competitive') {
+      this.updatePlayersPanel();
+    }
   }
 
   handleKeyPress(key) {
@@ -271,15 +321,37 @@ class WordleApp {
     if (key === 'ENTER') {
       this.submitGuess();
     } else if (key === 'BACK') {
-      if (this.currentInput.length > 0) {
-        this.currentInput = this.currentInput.slice(0, -1);
-        this.gameBoard.removeLetter();
-        this.broadcastTyping();
+      if (this.gameMode === 'collaborative') {
+        // In collaborative mode, work with shared letters
+        if (this.collaborativeLetters.length > 0) {
+          this.collaborativeLetters = this.collaborativeLetters.slice(0, -1);
+          this.gameBoard.removeLetter();
+          this.broadcastCollabTyping();
+        }
+      } else {
+        // Competitive mode
+        if (this.currentInput.length > 0) {
+          this.currentInput = this.currentInput.slice(0, -1);
+          this.gameBoard.removeLetter();
+          this.broadcastTyping();
+        }
       }
-    } else if (/^[A-Z]$/.test(key) && this.currentInput.length < 5) {
-      this.currentInput += key;
-      this.gameBoard.addLetter(key);
-      this.broadcastTyping();
+    } else if (/^[A-Z]$/.test(key)) {
+      if (this.gameMode === 'collaborative') {
+        // In collaborative mode, work with shared letters
+        if (this.collaborativeLetters.length < 5) {
+          this.collaborativeLetters += key;
+          this.gameBoard.addLetter(key);
+          this.broadcastCollabTyping();
+        }
+      } else {
+        // Competitive mode
+        if (this.currentInput.length < 5) {
+          this.currentInput += key;
+          this.gameBoard.addLetter(key);
+          this.broadcastTyping();
+        }
+      }
     }
   }
 
@@ -292,14 +364,124 @@ class WordleApp {
     }
   }
 
+  broadcastCollabTyping() {
+    if (this.socket) {
+      this.socket.emit('collab-typing', {
+        letters: this.collaborativeLetters,
+        row: this.gameBoard.currentRow,
+        playerName: this.playerName
+      });
+    }
+  }
+
+  handleCollabUpdate(data) {
+    // Don't update if it's from me
+    if (data.playerId === this.socket.id) return;
+
+    // Update the shared collaborative letters
+    this.collaborativeLetters = data.letters;
+
+    // Clear and redraw the current row with the new letters
+    this.gameBoard.clearCurrentRow();
+    for (let i = 0; i < this.collaborativeLetters.length; i++) {
+      this.gameBoard.addLetter(this.collaborativeLetters[i]);
+    }
+
+    // Show collaborative status
+    this.updateCollabStatus(data.playerName, data.letters);
+  }
+
+  handleCollabSubmitting(data) {
+    // Someone else is submitting the guess
+    this.updateCollabStatus(`${data.playerName} submitting`, data.guess, true);
+    this.showMessage(`${data.playerName} submitting "${data.guess}"...`, 1000);
+  }
+
+  updateCollabStatus(playerName, text, isSubmitting = false) {
+    const statusEl = document.getElementById('collab-status');
+    if (!statusEl) return;
+
+    if (text && text.length > 0) {
+      statusEl.style.display = 'block';
+      if (isSubmitting) {
+        statusEl.style.background = 'var(--correct)';
+        statusEl.textContent = `⏎ ${playerName}: ${text}`;
+      } else {
+        statusEl.style.background = 'var(--present)';
+        statusEl.textContent = `✎ ${playerName}: ${text}`;
+      }
+
+      // Auto-hide after a delay if not submitting
+      if (!isSubmitting) {
+        setTimeout(() => {
+          if (!isSubmitting) {
+            statusEl.style.display = 'none';
+          }
+        }, 1500);
+      }
+    } else {
+      statusEl.style.display = 'none';
+    }
+  }
+
+  handleCollabResult(data) {
+    // Hide status bar
+    const statusEl = document.getElementById('collab-status');
+    if (statusEl) statusEl.style.display = 'none';
+
+    // All players receive the same result simultaneously
+    if (!data.valid) {
+      this.gameBoard.shakeRow();
+      this.showMessage(data.error);
+      return;
+    }
+
+    const isMe = data.submitterId === this.socket.id;
+    const submitterText = isMe ? 'You' : data.submitterName;
+
+    // Update status to show result is being revealed
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = 'var(--correct)';
+      statusEl.textContent = `✓ ${submitterText} submitted: ${data.guess}`;
+    }
+
+    // Reveal colors with animation (synchronized for all players)
+    this.gameBoard.revealRow(data.row, data.colors, () => {
+      // Update keyboard colors
+      this.updateKeyboardColors(data.guess, data.colors);
+
+      // Hide status bar after animation
+      setTimeout(() => {
+        if (statusEl) statusEl.style.display = 'none';
+      }, 500);
+
+      if (data.status === 'won') {
+        this.gameBoard.bounceRow(data.row);
+        this.myStatus = 'won';
+        const message = isMe ? '🎉 You won it for the team!' : `🎉 ${data.submitterName} won it for the team!`;
+        this.showMessage(message, 3000);
+      } else if (data.status === 'lost') {
+        this.myStatus = 'lost';
+      }
+    });
+
+    // Move to next row
+    this.gameBoard.nextRow();
+    this.currentInput = '';
+    this.collaborativeLetters = '';
+  }
+
   submitGuess() {
-    if (this.currentInput.length !== 5) {
+    const guess = this.gameMode === 'collaborative' ? this.collaborativeLetters : this.currentInput;
+
+    if (guess.length !== 5) {
       this.gameBoard.shakeRow();
       this.showMessage('Not enough letters');
       return;
     }
 
-    this.socket.emit('submit-guess', { guess: this.currentInput });
+    this.socket.emit('submit-guess', { guess });
   }
 
   handleGuessResult(data) {
@@ -317,7 +499,8 @@ class WordleApp {
       if (data.status === 'won') {
         this.gameBoard.bounceRow(data.row);
         this.myStatus = 'won';
-        this.showMessage('You got it!');
+        const message = this.gameMode === 'collaborative' ? 'Team won!' : 'You got it!';
+        this.showMessage(message);
       } else if (data.status === 'lost') {
         this.myStatus = 'lost';
       }
@@ -326,6 +509,7 @@ class WordleApp {
     // Move to next row
     this.gameBoard.nextRow();
     this.currentInput = '';
+    this.collaborativeLetters = '';
   }
 
   updateKeyboardColors(guess, colors) {

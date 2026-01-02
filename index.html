@@ -609,6 +609,20 @@
 
     <input type="text" class="name-input" id="player-name" placeholder="Enter your name" maxlength="12">
 
+    <div class="lobby-section" style="margin-bottom: 20px;">
+      <h3>Game Mode</h3>
+      <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="radio" name="game-mode" value="competitive" checked>
+          <span>Competitive (Race)</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="radio" name="game-mode" value="collaborative">
+          <span>Collaborative (Team)</span>
+        </label>
+      </div>
+    </div>
+
     <div class="lobby-buttons">
       <button class="lobby-btn primary" id="create-room-btn">Create Room</button>
       <button class="lobby-btn secondary" id="join-room-btn">Join Room</button>
@@ -625,7 +639,8 @@
   <div id="waiting-room" class="hidden">
     <h2 style="margin-bottom: 16px; color: var(--text-muted);">ROOM CODE</h2>
     <div class="waiting-code" id="display-room-code">------</div>
-    <p style="color: var(--text-muted); margin-bottom: 20px;">Share this code with friends!</p>
+    <p style="color: var(--text-muted); margin-bottom: 10px;">Share this code with friends!</p>
+    <p id="game-mode-display" style="color: var(--present); font-weight: bold; margin-bottom: 20px;"></p>
 
     <div class="waiting-players" id="waiting-players"></div>
 
@@ -643,6 +658,7 @@
   </header>
 
   <main style="display: none;" id="game-main">
+    <div id="collab-status" style="display: none; margin-bottom: 10px; padding: 8px 16px; background: var(--present); border-radius: 4px; font-size: 14px; font-weight: bold; text-align: center;"></div>
     <div id="game-board"></div>
   </main>
 
