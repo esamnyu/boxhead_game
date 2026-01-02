@@ -67,14 +67,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Serve static files
-app.use(express.static(join(__dirname, '../')));
+// Root endpoint
 app.get('/', (req, res) => {
-  res.sendFile(join(__dirname, '../index.html'));
+  res.json({ message: 'Wordle for Friends API', status: 'running' });
 });
 
 // Health check
 app.get('/health', (req, res) => {
+  console.log('Health check hit');
   res.json({
     status: 'ok',
     rooms: roomManager.getRoomCount(),
@@ -92,6 +92,15 @@ const gameServer = new GameServer(io, roomManager);
 
 const PORT = process.env.PORT || 3001;
 const HOST = '0.0.0.0'; // Required for Railway/cloud deployment
+
+// Error handlers
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 server.listen(PORT, HOST, () => {
   console.log(`Wordle for Friends server running on ${HOST}:${PORT}`);
