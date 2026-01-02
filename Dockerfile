@@ -11,8 +11,9 @@ RUN npm install --production
 # Copy server source
 COPY server/ ./
 
-# Expose port (Railway sets PORT env var)
-EXPOSE 3001
+# Railway sets PORT env var dynamically
+ENV PORT=8080
+EXPOSE 8080
 
 # Start the server
 CMD ["node", "index.js"]
