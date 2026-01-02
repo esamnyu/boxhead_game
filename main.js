@@ -3,6 +3,19 @@ import { GameBoard } from './ui/gameBoard.js';
 import { Keyboard } from './ui/keyboard.js';
 import { CONFIG } from './config.js';
 
+// Debounce helper to limit function calls
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func.apply(this, args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 class WordleApp {
   constructor() {
     this.socket = null;
@@ -18,6 +31,9 @@ class WordleApp {
     this.myStatus = 'playing'; // 'playing' | 'won' | 'lost'
     this.gameMode = 'competitive'; // 'competitive' | 'collaborative'
     this.collaborativeLetters = ''; // Shared letters in collaborative mode
+
+    // Create debounced version of collaborative typing broadcast
+    this.debouncedBroadcastCollab = debounce(this.broadcastCollabTyping.bind(this), 100);
 
     this.init();
   }
@@ -326,7 +342,7 @@ class WordleApp {
         if (this.collaborativeLetters.length > 0) {
           this.collaborativeLetters = this.collaborativeLetters.slice(0, -1);
           this.gameBoard.removeLetter();
-          this.broadcastCollabTyping();
+          this.debouncedBroadcastCollab();
         }
       } else {
         // Competitive mode
@@ -342,7 +358,7 @@ class WordleApp {
         if (this.collaborativeLetters.length < 5) {
           this.collaborativeLetters += key;
           this.gameBoard.addLetter(key);
-          this.broadcastCollabTyping();
+          this.debouncedBroadcastCollab();
         }
       } else {
         // Competitive mode

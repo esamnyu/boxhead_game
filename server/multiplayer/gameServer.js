@@ -8,6 +8,7 @@ export class GameServer {
     this.roomManager = roomManager;
     this.gameSessions = new Map();
     this.playerSockets = new Map();
+    this.collabRateLimits = new Map(); // Track last event time per player
 
     this.setupSocketHandlers();
   }
@@ -145,6 +146,15 @@ export class GameServer {
     const roomId = socket.data.roomId;
     if (!roomId) return;
 
+    // Rate limiting: max 10 events/second
+    const now = Date.now();
+    const lastTime = this.collabRateLimits.get(socket.id) || 0;
+    if (now - lastTime < 100) { // 100ms = 10 events/sec
+      console.warn(`Rate limit exceeded for player ${socket.id}`);
+      return; // Drop the event
+    }
+    this.collabRateLimits.set(socket.id, now);
+
     // In collaborative mode, broadcast actual letters to all players including sender
     this.io.to(roomId).emit('collab-update', {
       playerId: socket.id,
@@ -206,6 +216,7 @@ export class GameServer {
     console.log(`Player disconnected: ${socket.id}`);
     this.handleLeaveRoom(socket);
     this.playerSockets.delete(socket.id);
+    this.collabRateLimits.delete(socket.id); // Clean up rate limit data
   }
 
   broadcastRoomUpdate(roomId) {

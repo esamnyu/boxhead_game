@@ -24,15 +24,14 @@ const app = express();
 const server = createServer(app);
 
 // CORS configuration - allow Vercel and local development
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5500';
 const allowedOrigins = [
-  'http://localhost:5500',
-  'http://127.0.0.1:5500',
-  'http://localhost:5501',
-  'http://127.0.0.1:5501',
-  'http://localhost:5502',
-  'http://127.0.0.1:5502',
-  'http://localhost:3000',
-  /\.vercel\.app$/,  // All Vercel preview/production domains
+  CLIENT_URL,                    // Production Vercel URL from env
+  'http://localhost:5500',       // Local dev
+  'http://localhost:5501',       // Local dev multi-client
+  'http://localhost:5502',       // Local dev multi-client
+  'http://localhost:3000',       // Alternative local
+  /\.vercel\.app$/,              // All Vercel preview/production domains
 ];
 
 const io = new Server(server, {
@@ -51,7 +50,7 @@ const io = new Server(server, {
         callback(null, true);
       } else {
         console.log('CORS blocked origin:', origin);
-        callback(null, true); // Allow anyway for now to debug
+        callback(new Error('Not allowed by CORS'));
       }
     },
     methods: ["GET", "POST"],
