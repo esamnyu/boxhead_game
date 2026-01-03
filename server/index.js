@@ -25,6 +25,7 @@ const server = createServer(app);
 
 // CORS configuration - allow Vercel and local development
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5500';
+console.log('CLIENT_URL from env:', CLIENT_URL);
 const allowedOrigins = [
   CLIENT_URL,                    // Production Vercel URL from env
   'http://localhost:5500',       // Local dev
@@ -33,12 +34,18 @@ const allowedOrigins = [
   'http://localhost:3000',       // Alternative local
   /\.vercel\.app$/,              // All Vercel preview/production domains
 ];
+console.log('Allowed origins:', allowedOrigins);
 
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
+      console.log('Socket.IO CORS check for origin:', origin);
+
       // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin) return callback(null, true);
+      if (!origin) {
+        console.log('No origin - allowing');
+        return callback(null, true);
+      }
 
       // Check if origin matches allowed origins
       const isAllowed = allowedOrigins.some(allowed => {
@@ -47,6 +54,7 @@ const io = new Server(server, {
       });
 
       if (isAllowed) {
+        console.log('Origin allowed:', origin);
         callback(null, true);
       } else {
         console.log('CORS blocked origin:', origin);
