@@ -1,5 +1,6 @@
 FROM node:20-alpine
 
+# Force rebuild - Jan 2, 2026 8:15 PM
 WORKDIR /app
 
 # Copy server package files
