@@ -82,6 +82,30 @@ app.use(cors({
 }));
 app.use(express.json());
 
+const PORT = process.env.PORT || 3001;
+const HOST = '0.0.0.0'; // Required for Railway/cloud deployment
+
+// Error handlers MUST be registered before anything else
+process.on('uncaughtException', (err) => {
+  console.error('❌ UNCAUGHT EXCEPTION:', err);
+  console.error(err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ UNHANDLED REJECTION:', reason);
+  process.exit(1);
+});
+
+// Initialize game components
+console.log('Initializing RoomManager...');
+const roomManager = new RoomManager();
+console.log('✓ RoomManager initialized');
+
+console.log('Initializing GameServer...');
+const gameServer = new GameServer(io, roomManager);
+console.log('✓ GameServer initialized');
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({ message: 'Wordle for Friends API', status: 'running' });
@@ -89,7 +113,7 @@ app.get('/', (req, res) => {
 
 // Health check
 app.get('/health', (req, res) => {
-  console.log('Health check hit');
+  console.log('Health check requested');
   res.json({
     status: 'ok',
     rooms: roomManager.getRoomCount(),
@@ -102,22 +126,9 @@ app.get('/api/rooms', (req, res) => {
   res.json(roomManager.getPublicRooms());
 });
 
-const roomManager = new RoomManager();
-const gameServer = new GameServer(io, roomManager);
-
-const PORT = process.env.PORT || 3001;
-const HOST = '0.0.0.0'; // Required for Railway/cloud deployment
-
-// Error handlers
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
+console.log(`Starting HTTP server on ${HOST}:${PORT}...`);
 server.listen(PORT, HOST, () => {
-  console.log(`Wordle for Friends server running on ${HOST}:${PORT}`);
+  console.log(`✓ Server listening on ${HOST}:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('✓ Ready to accept connections');
 });
